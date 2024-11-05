@@ -1,49 +1,47 @@
 #include <Wire.h>
-#include <ESP8266Wifi.h>
+#include <ESP8266WiFi.h>
 #include "DHT.h"
 
-#define LEDonBoard 2  // On Board LED for WIFI connection indicator
+#define LEDonBoard 2  // On-board LED for WiFi connection indicator
 
-
-// Wifi  credentials
+// WiFi credentials
 const char* ssid = "Wifi Name";
 const char* password = "psw123";
 
-//ThingSpeak API key and server
+// ThingSpeak API key and server
 String apiKey = "IZBGJNN79QKJ08W";  // enter your write API key from ThingSpeak
 const char* server = "api.thingspeak.com";
 
-//DHT Sensor Definitions
+// DHT Sensor Definitions
 #define DHTTYPE DHT11
-const int DHTPin = 14;  // The pin used for the DHT11 sensor is Pin D5= Pin 14
-DHT dht(DHTPin, DHTTPYE);
+const int DHTPin = 14;  // The pin used for the DHT11 sensor is Pin D5 = Pin 14
+DHT dht(DHTPin, DHTTYPE);
 
-// AS5600 Definations
-#define AS5600_ADRESS 0x36
-#define ANGLE_RESISTER_MSB 0x0E
-#define ANGLE_RESISTER_MSB 0x0F
+// AS5600 Definitions
+#define AS5600_ADDRESS 0x36
+#define ANGLE_REGISTER_MSB 0x0E
+#define ANGLE_REGISTER_LSB 0x0F
 
-// Whell circumference (in cm)
-const float circumference = 14.137167
+// Wheel circumference (in cm)
+const float circumference = 14.137167;
 
-  //variables for speed calculation
-  const int sampleInterval = 15000;  // 15 sec
+// Variables for speed calculation
+const int sampleInterval = 15000;  // 15 sec
 uint8_t hall_Count = 0;
 float m_Speed = 0;
 
-WifiClient client;
+WiFiClient client;
 
 void setup() {
-
-  // initialize I2C and Serial
-  Wire.begin(D2, D1);  // I2C on ESP8266, SDA=D2, SCL=D1
+  // Initialize I2C and Serial
+  Wire.begin(D2, D1);  // I2C on ESP8266, SDA = D2, SCL = D1
   Serial.begin(115200);
 
-  //Connect to WIFI
-  Wifi.begin(ssid, password);
-  Serial.print("Connecting to Wifi");
+  // Connect to WiFi
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi");
   pinMode(LEDonBoard, OUTPUT);
-  while (Wifi.status() != WL_CONNECTED){
+  while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
     digitalWrite(LEDonBoard, LOW);
     delay(250);
@@ -56,18 +54,18 @@ void setup() {
   Serial.println(ssid);
 
   // Initialize DHT sensor
-  dht.begin;
+  dht.begin();
 
-  //debug message
+  // Debug message
   Serial.println("AS5600 Simple Angle Read with ESP8266");
 }
 
-void loop(){
-  // read DHT sensor
+void loop() {
+  // Read DHT sensor
   float h = dht.readHumidity();
   float t = dht.readTemperature();
 
-  // read the angle from the AS5600 sensor
+  // Read the angle from the AS5600 sensor
   float angleDegrees = readAngle();
 
   // Calculate speed
@@ -80,93 +78,91 @@ void loop(){
   Serial.print(angleDegrees);
   Serial.println(" degrees");
 
-  // send DHT data to ThingSpeak
-  if(client.connect(server, 80)) {
+  // Send DHT data to ThingSpeak
+  if (client.connect(server, 80)) {
     String postStr = apiKey;
-    postStr += "&field1=" // Field 1 for temperature
+    postStr += "&field1="; // Field 1 for temperature
     postStr += String(t);
-    postStr += "&field2=" // Field 1 for temperature
+    postStr += "&field2="; // Field 2 for humidity
     postStr += String(h);
-    postStr += "&field4=" // Field 1 for temperature
-    postStr += String(angleDegrees);
-    postStr += "&field3=" // Field 1 for temperature
+    postStr += "&field3="; // Field 3 for speed
     postStr += String(m_Speed);
+    postStr += "&field4="; // Field 4 for angle
+    postStr += String(angleDegrees);
 
     client.print("POST /update HTTP/1.1\n");
     client.print("Host: api.thingspeak.com\n");
     client.print("Connection: close\n");
-    client.print("X-THINGSEPAKAPIKEY:" + apiKey + "\n");
+    client.print("X-THINGSPEAKAPIKEY: " + apiKey + "\n");
     client.print("Content-Type: application/x-www-form-urlencoded\n");
-    client.print("Content-Lenght: ");
-    client.print(postStr.lenght());
+    client.print("Content-Length: ");
+    client.print(postStr.length());
     client.print("\n\n");
     client.print(postStr);
-    
+
     Serial.print("Temperature: ");
     Serial.print(t);
-    Serial.print("degrees Celcius, Humidity: ");
+    Serial.print("°C, Humidity: ");
     Serial.print(h);
-    Serial.println("%. Sent to ThingSpeak");
+    Serial.println("% sent to ThingSpeak.");
     Serial.print("Angle: ");
     Serial.print(angleDegrees);
     Serial.print(" degrees, Speed: ");
     Serial.print(m_Speed);
-    Serial.println(" km/h Sent to ThingSpeak");
+    Serial.println(" km/h sent to ThingSpeak");
 
     client.stop();
   }
-  
-  Wifi.setSleepMode(WIFI_NONE_SLEEP);
-  //delay(sampleInterval);
-  hall_Count =0;
-  time_Passed =0;
 
+  WiFi.setSleepMode(WIFI_NONE_SLEEP);
+  hall_Count = 0;
+  time_Passed = 0;
 }
 
-float readAngle(){
+float readAngle() {
   uint8_t msb, lsb;
   Wire.beginTransmission(AS5600_ADDRESS);
-  Wire.write(ANGLE_REGISTER_MSB); // Point to the MSB of the angle register
-  Wire.endTransmission(false); // restart for reading
+  Wire.write(ANGLE_REGISTER_MSB);  // Point to the MSB of the angle register
+  Wire.endTransmission(false);      // Restart for reading
 
-  Wire.requestFrom(AS5600_ADRESS, 2); // request 2 bytes from the sensor
-  msb= Wire.read(); // read the MSB
-  lsb= Wire.read(); // read the LSB
+  Wire.requestFrom(AS5600_ADDRESS, 2);  // Request 2 bytes from the sensor
+  msb = Wire.read();                    // Read the MSB
+  lsb = Wire.read();                    // Read the LSB
 
-  uint16_t angle = ((uint16_t)msb <<8 ) | lsb; // combine MSB and LSB
-  return (angle & 0x0FFFF)*360.0 / 4096.0; // conver to degrees 0 to 360
+  uint16_t angle = ((uint16_t)msb << 8) | lsb;  // Combine MSB and LSB
+  return (angle & 0x0FFF) * 360.0 / 4096.0;     // Convert to degrees 0 to 360
 }
 
-  float measureSpeed(){
-    float start = milis();
-    bool on_state = false;
-    float time_Passed =0;
+float measureSpeed() {
+  float start = millis();
+  bool on_state = false;
+  float time_Passed = 0;
 
-    while(true){
-      if(digitalRead(13) == 0){
-        if(!on_state){
-          on_state = true;
-          hall_Count++;
-        }
-      } else {
-        on_state = false;
+  while (true) {
+    if (digitalRead(13) == 0) {
+      if (!on_state) {
+        on_state = true;
+        hall_Count++;
       }
-      float end_Time = milis();
-      time_Passed = (end_Time  start) / 1000;
-
-      yield();
-
-      if(time_Passed >= sampleInterval / 1000){
-        break;
-      }
+    } else {
+      on_state = false;
     }
-    calc_Speed(time_Passed);
-    return time_Passed;
-  }
+    float end_Time = millis();
+    time_Passed = (end_Time - start) / 1000.0;
 
-  void calc_Speed(float time_Passed){
-    m_Speed = (((circumference / 100)* hall_Count) / time_Passed) * 3.6; // km/h
+    yield();
+
+    if (time_Passed >= sampleInterval / 1000.0) {
+      break;
+    }
   }
+  calc_Speed(time_Passed);
+  return time_Passed;
+}
+
+void calc_Speed(float time_Passed) {
+  m_Speed = (((circumference / 100) * hall_Count) / time_Passed) * 3.6;  // km/h
+}
 
 
   // channel ID and API key
